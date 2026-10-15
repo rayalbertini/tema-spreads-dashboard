@@ -1,0 +1,5 @@
+pandas>=2.0
+tzdata            # timezone database (needed on Windows)
+openpyxl>=3.1     # only for export_from_workbook.py
+# blpapi is NOT on the public PyPI index. Install it from Bloomberg's index:
+#   pip install --index-url=https://blpapi.bloomberg.com/repository/releases/python/simple/ blpapi

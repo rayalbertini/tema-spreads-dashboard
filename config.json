@@ -1,0 +1,18 @@
+{
+  "suffix": "US Equity",
+  "tickers": [
+    { "ticker": "NASA", "lmm": "GTS" },
+    { "ticker": "DSPY", "lmm": "GTS" },
+    { "ticker": "VOLT", "lmm": "GTS" },
+    { "ticker": "WELD", "lmm": "SIG" },
+    { "ticker": "CANC", "lmm": "Virtu" },
+    { "ticker": "DISK", "lmm": "GTS" },
+    { "ticker": "LAZR", "lmm": "GTS" },
+    { "ticker": "TOLL", "lmm": "SIG" },
+    { "ticker": "HRTS", "lmm": "Virtu" },
+    { "ticker": "ARMY", "lmm": "Old Mission" },
+    { "ticker": "HLTH", "lmm": "GTS" },
+    { "ticker": "PSOX", "lmm": "GTS" },
+    { "ticker": "DICE", "lmm": "GTS" }
+  ]
+}

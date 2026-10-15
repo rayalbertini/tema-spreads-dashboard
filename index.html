@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tema ETFs intraday spreads</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230B7A75'/%3E%3Cpath d='M6 22l6-8 5 4 9-11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F4F6;
+    --surface: #FFFFFF;
+    --ink: #13202B;
+    --muted: #5A6A79;
+    --line: #DCE2E8;
+    --line-strong: #C3CCD5;
+    --track: #E6EBF0;
+    --range: #C9D6E2;
+    --tight: #0B7A75;
+    --wide: #B4540A;
+    --focus: #2457D6;
+    --warn-bg: #FFF1D6;
+    --warn-ink: #5E3B00;
+    --err-bg: #FCE6E3;
+    --err-ink: #74190F;
+    --info-bg: #E6EEF8;
+    --info-ink: #1B3A5C;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0D141B;
+      --surface: #141E27;
+      --ink: #E6ECF1;
+      --muted: #93A4B4;
+      --line: #25313C;
+      --line-strong: #364552;
+      --track: #1D2934;
+      --range: #2D4153;
+      --tight: #3CC1B8;
+      --wide: #F2A056;
+      --focus: #86A6FF;
+      --warn-bg: #3A2D10;
+      --warn-ink: #F4D8A0;
+      --err-bg: #3A1A17;
+      --err-ink: #F6B8B0;
+      --info-bg: #17293B;
+      --info-ink: #BFD6F0;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 15px/1.45 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 56px; }
+
+  /* ---------- header ---------- */
+  .top { display: flex; flex-wrap: wrap; gap: 16px 32px; justify-content: space-between; align-items: flex-end; }
+  h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { margin: 6px 0 0; color: var(--muted); }
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 14px; color: var(--muted); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 9px;
+    border: 1px solid var(--line-strong); border-radius: 999px; color: var(--ink); font-weight: 500; background: var(--surface);
+  }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: block; }
+  .chip.live i { background: var(--tight); animation: pulse 2s ease-out infinite; }
+  .chip.stale { border-color: var(--wide); }
+  .chip.stale i { background: var(--wide); }
+  .chip.sample i { background: #3B6FD4; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tight) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+  @media (prefers-reduced-motion: reduce) { .chip.live i { animation: none; } }
+  button {
+    font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--muted); }
+  button[disabled] { opacity: .6; cursor: progress; }
+
+  .banner { margin: 18px 0 0; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+  .banner[hidden] { display: none; }
+  .banner.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .banner.err { background: var(--err-bg); color: var(--err-ink); }
+  .banner.info { background: var(--info-bg); color: var(--info-ink); }
+
+  /* ---------- summary numbers ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); margin: 26px 0 30px; border-top: 2px solid var(--ink); }
+  .kpi { padding: 14px 18px 4px 0; }
+  .kpi + .kpi { padding-left: 18px; border-left: 1px solid var(--line); }
+  .kpi dt { color: var(--muted); font-size: 14px; }
+  .kpi dd { margin: 2px 0 0; }
+  .kpi .big { font-size: 34px; line-height: 1.1; font-weight: 500; letter-spacing: -0.02em; }
+  .kpi .who { color: var(--muted); font-size: 14px; margin-top: 2px; min-height: 1.45em; }
+  .kpi .who b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 760px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .kpi:nth-child(3) { padding-left: 0; border-left: 0; }
+    .kpi:nth-child(n+3) { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 14px; }
+  }
+
+  /* ---------- section headings ---------- */
+  .section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 24px; margin: 0 0 10px; }
+  h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .legend { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+  .legend .k-tight { color: var(--tight); font-weight: 600; }
+  .legend .k-wide { color: var(--wide); font-weight: 600; }
+
+  /* ---------- table ---------- */
+  .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; min-width: 980px; border-collapse: collapse; }
+  caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  th, td { padding: 9px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child td { border-bottom: 0; }
+  th { font-weight: 500; font-size: 13px; color: var(--muted); background: var(--surface); border-bottom: 1px solid var(--line-strong); padding-top: 11px; padding-bottom: 11px; }
+  th.l, td.l { text-align: left; }
+  th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; color: inherit; font: inherit; }
+  th button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  th button .arrow { width: 8px; color: var(--ink); font-size: 10px; }
+  th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
+  tbody tr:hover td { background: color-mix(in srgb, var(--track) 55%, transparent); }
+  td.sticky, th.sticky { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+  tbody tr:hover td.sticky { background: color-mix(in srgb, var(--track) 85%, var(--surface)); }
+  .tk a { font-weight: 600; text-decoration: none; }
+  .tk a:hover { text-decoration: underline; }
+  .tk small { display: block; color: var(--muted); font-size: 12px; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }
+  td.num { font-size: 14.5px; }
+  td.cur { font-weight: 600; }
+  .neg { color: var(--tight); }
+  .pos { color: var(--wide); }
+  .dim { color: var(--muted); }
+  td.bar { padding-top: 4px; padding-bottom: 4px; text-align: left; }
+  td.bar svg { display: block; width: 210px; height: 22px; }
+
+  /* ---------- small multiples ---------- */
+  .charts-head { margin-top: 40px; }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; border-radius: 0; background: transparent; font-size: 13px; padding: 5px 12px; }
+  .seg button + button { border-left: 1px solid var(--line-strong); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 0; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line); margin-top: 14px; background: var(--surface); }
+  figure.mini { margin: 0; padding: 14px 16px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); scroll-margin-top: 16px; }
+  figure.mini:target { box-shadow: inset 0 0 0 2px var(--focus); }
+  figcaption .r1 { display: flex; align-items: baseline; gap: 8px; }
+  figcaption .r2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+  figcaption .t { font-weight: 600; text-decoration: none; }
+  figcaption .v { font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+  figcaption .d { font-size: 13px; }
+  figcaption .lmm { font-size: 12.5px; color: var(--muted); }
+  .plot { position: relative; margin-top: 4px; }
+  .plot svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  .plot .tip {
+    position: absolute; top: -2px; transform: translateX(-50%); pointer-events: none;
+    background: var(--ink); color: var(--surface); font-size: 12px; padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+  }
+  .plot .tip[hidden] { display: none; }
+  svg .gl { stroke: var(--line); stroke-width: 1; }
+  svg .ax { fill: var(--muted); font-size: 9.5px; font-family: inherit; }
+  svg .ln { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
+  svg .ar { fill: var(--range); opacity: .45; }
+  svg .op { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  svg .hair { stroke: var(--muted); stroke-width: 1; }
+  .foot { margin-top: 28px; color: var(--muted); font-size: 13px; }
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+  @media (max-width: 560px) {
+    .wrap { padding: 20px 14px 40px; }
+    h1 { font-size: 23px; }
+    .kpi .big { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Tema ETFs intraday spreads</h1>
+      <p class="sub" id="subtitle">Loading the latest session.</p>
+    </div>
+    <div class="status">
+      <span class="chip" id="chip"><i></i><span id="chip-text">Loading</span></span>
+      <span id="updated"></span>
+      <button type="button" id="refresh">Refresh now</button>
+      <span id="countdown"></span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="status" hidden></div>
+
+  <dl class="kpis" id="kpis" aria-label="Summary across all ETFs">
+    <div class="kpi"><dt>Average current</dt><dd><div class="big" id="k-avg">–</div><div class="who">&nbsp;</div></dd></div>
+    <div class="kpi"><dt>Tightest current</dt><dd><div class="big" id="k-min">–</div><div class="who" id="w-min">&nbsp;</div></dd></div>
+    <div class="kpi"><dt>Widest current</dt><dd><div class="big" id="k-max">–</div><div class="who" id="w-max">&nbsp;</div></dd></div>
+    <div class="kpi"><dt>Median current</dt><dd><div class="big" id="k-med">–</div><div class="who">&nbsp;</div></dd></div>
+  </dl>
+
+  <div class="section-head">
+    <h2>All ETFs</h2>
+    <p class="legend">Each bar runs from today's lowest to highest spread, on one scale for every row. The tick marks the open. The dot is the current spread: <span class="k-tight">teal</span> when at or below the session average, <span class="k-wide">orange</span> when above.</p>
+  </div>
+  <div class="table-scroll">
+    <table id="table">
+      <caption>Current, opening and session spreads for each ETF. Column headers sort the table.</caption>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="section-head charts-head">
+    <h2>Through the session</h2>
+    <div class="seg" role="group" aria-label="Chart scale">
+      <button type="button" id="scale-own" aria-pressed="true">Each ETF's own scale</button>
+      <button type="button" id="scale-shared" aria-pressed="false">Same scale for all</button>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <p class="foot">Spread is the average ask minus the average bid in each 5-minute bucket, labelled by the end of the bucket. Dashed line on each chart is the open. Times are US Eastern. The page checks for new data every 5 minutes.</p>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ *  SETTINGS
+ *
+ *  By default the page reads data/spreads.json from the same site, which
+ *  ships with sample data so you can see it working right away.
+ *
+ *  To show live data from the publisher, set githubRepo (for example
+ *  "your-name/tema-spreads-dashboard"). The page then reads the file from
+ *  the `data` branch through the GitHub API, which is not subject to the
+ *  GitHub Pages build limit. GitHub allows 60 anonymous API calls per hour
+ *  per IP address; if many people share one office IP, set dataUrl to
+ *  https://raw.githubusercontent.com/<owner>/<repo>/data/data/spreads.json
+ *  instead (it can lag by a few minutes).
+ * ------------------------------------------------------------------ */
+const CONFIG = {
+  dataUrl: "",          // optional: full URL of the JSON file (overrides everything below)
+  githubRepo: "",
+  githubBranch: "data",
+  dataPath: "data/spreads.json",
+  refreshSeconds: 300,
+  staleAfterMinutes: 10,
+  timeZone: "America/New_York"
+};
+
+/* ---------- formatting ---------- */
+const money = v => (v == null || !isFinite(v)) ? "–" : "$" + v.toFixed(3);
+const delta = v => (v == null || !isFinite(v)) ? "–" : (v > 0.0000001 ? "+" : v < -0.0000001 ? "\u2212" : "") + "$" + Math.abs(v).toFixed(3);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtTime = new Intl.DateTimeFormat("en-US", { timeZone: CONFIG.timeZone, hour: "numeric", minute: "2-digit" });
+const fmtDate = new Intl.DateTimeFormat("en-US", { timeZone: CONFIG.timeZone, weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const clockParts = new Intl.DateTimeFormat("en-US", { timeZone: CONFIG.timeZone, hour12: false, weekday: "short", hour: "2-digit", minute: "2-digit" });
+
+function etClock(d) {
+  const p = {};
+  for (const x of clockParts.formatToParts(d)) p[x.type] = x.value;
+  let h = +p.hour; if (h === 24) h = 0;
+  return { weekday: p.weekday, minutes: h * 60 + +p.minute };
+}
+function marketIsOpen(d) {
+  const c = etClock(d);
+  return c.weekday !== "Sat" && c.weekday !== "Sun" && c.minutes >= 570 && c.minutes <= 970;   // 9:30 to 16:10
+}
+// Fund names from Bloomberg are all caps: tidy them for display.
+function pretty(name) {
+  return String(name || "").split(/\s+/).map(w =>
+    (w.length <= 3 || /[&.\-]/.test(w) || /^(MLCC|DFNS)$/.test(w)) ? w : w[0] + w.slice(1).toLowerCase()
+  ).join(" ").trim();
+}
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+function median(a) { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+
+/* ---------- data ---------- */
+async function fetchData() {
+  let url, opts = { cache: "no-store" };
+  if (CONFIG.dataUrl) {
+    url = CONFIG.dataUrl + (CONFIG.dataUrl.includes("?") ? "&" : "?") + "t=" + Date.now();
+  } else if (CONFIG.githubRepo) {
+    url = `https://api.github.com/repos/${CONFIG.githubRepo}/contents/${CONFIG.dataPath}?ref=${encodeURIComponent(CONFIG.githubBranch)}`;
+    opts.headers = { Accept: "application/vnd.github.raw+json" };
+  } else {
+    url = `${CONFIG.dataPath}?t=${Date.now()}`;
+  }
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    const why = r.status === 404 ? "file not found" : r.status === 403 ? "GitHub rate limit or no access" : "request failed";
+    throw new Error(`${why} (HTTP ${r.status}) at ${url.split("?")[0]}`);
+  }
+  return r.json();
+}
+
+function normalize(payload) {
+  const keys = payload.order || Object.keys(payload.etfs || {});
+  return keys.filter(k => payload.etfs[k]).map(tk => {
+    const e = payload.etfs[tk];
+    const pts = (e.series || [])
+      .filter(p => p && p[1] != null && isFinite(p[1]))
+      .map(p => { const t = new Date(p[0]); return { t, x: (etClock(t).minutes - 570) / 390, v: +p[1] }; })
+      .filter(p => !isNaN(p.t));
+    const row = { ticker: tk, name: pretty(e.name), lmm: e.lmm || "", pts, empty: !pts.length };
+    if (!row.empty) {
+      const vals = pts.map(p => p.v);
+      Object.assign(row, {
+        cur: vals[vals.length - 1], open: vals[0], avg: mean(vals),
+        min: Math.min(...vals), max: Math.max(...vals), asOf: pts[pts.length - 1].t
+      });
+      row.delta = row.cur - row.open;
+    }
+    return row;
+  });
+}
+
+/* ---------- state ---------- */
+const state = { payload: null, rows: [], sort: { key: "cur", dir: -1 }, scale: "own", nextAt: Date.now(), error: null, loading: false };
+const $ = id => document.getElementById(id);
+
+/* ---------- table ---------- */
+const COLS = [
+  { k: "ticker", l: "ETF", left: true, sticky: true },
+  { k: "lmm", l: "LMM", left: true },
+  { k: "cur", l: "Current" },
+  { k: "open", l: "Open" },
+  { k: "delta", l: "vs open" },
+  { k: "avg", l: "Session avg" },
+  { k: "min", l: "Min" },
+  { k: "max", l: "Max" },
+  { k: "range", l: "Today's range", nosort: true, left: true },
+  { k: "asOf", l: "As of (ET)" }
+];
+
+function renderHead() {
+  $("thead").innerHTML = COLS.map(c => {
+    const cls = [c.left ? "l" : "", c.sticky ? "sticky" : ""].join(" ").trim();
+    const sorted = state.sort.key === c.k;
+    const aria = sorted ? (state.sort.dir > 0 ? "ascending" : "descending") : "none";
+    if (c.nosort) return `<th scope="col" class="${cls}">${c.l}</th>`;
+    return `<th scope="col" class="${cls}" aria-sort="${aria}"><button type="button" data-k="${c.k}">${c.l}<span class="arrow" aria-hidden="true">${sorted ? (state.sort.dir > 0 ? "\u25B2" : "\u25BC") : ""}</span></button></th>`;
+  }).join("");
+}
+
+function sortedRows() {
+  const { key, dir } = state.sort;
+  return [...state.rows].sort((a, b) => {
+    if (a.empty !== b.empty) return a.empty ? 1 : -1;
+    if (a.empty) return 0;
+    const x = key === "asOf" ? +a.asOf : a[key], y = key === "asOf" ? +b.asOf : b[key];
+    const c = (typeof x === "string") ? x.localeCompare(y) : (x - y);
+    return c * dir || a.ticker.localeCompare(b.ticker);
+  });
+}
+
+function rangeBar(r, top) {
+  const W = 210, H = 22, pad = 5, X = v => pad + (v / top) * (W - 2 * pad);
+  const colour = r.cur <= r.avg ? "var(--tight)" : "var(--wide)";
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    <line x1="${pad}" x2="${W - pad}" y1="11" y2="11" stroke="var(--track)" stroke-width="1"/>
+    <rect x="${X(r.min).toFixed(1)}" y="7" width="${Math.max(2, X(r.max) - X(r.min)).toFixed(1)}" height="8" rx="2" fill="var(--range)"/>
+    <line x1="${X(r.open).toFixed(1)}" x2="${X(r.open).toFixed(1)}" y1="3" y2="19" stroke="var(--ink)" stroke-width="1.5"/>
+    <circle cx="${X(r.cur).toFixed(1)}" cy="11" r="4.5" fill="${colour}" stroke="var(--surface)" stroke-width="1.5"/>
+  </svg>`;
+}
+
+function renderTable() {
+  renderHead();
+  const live = state.rows.filter(r => !r.empty);
+  const top = Math.max(0.01, ...live.map(r => r.max)) * 1.04;
+  $("tbody").innerHTML = sortedRows().map(r => {
+    const id = `<td class="l sticky tk"><a href="#chart-${esc(r.ticker)}">${esc(r.ticker)}</a><small title="${esc(r.name)}">${esc(r.name)}</small></td><td class="l">${esc(r.lmm) || "–"}</td>`;
+    if (r.empty) return `<tr>${id}<td class="num dim" colspan="8">Waiting for the first 5-minute bucket.</td></tr>`;
+    const dcls = r.delta < -1e-7 ? "neg" : r.delta > 1e-7 ? "pos" : "dim";
+    return `<tr>${id}
+      <td class="num cur">${money(r.cur)}</td>
+      <td class="num">${money(r.open)}</td>
+      <td class="num ${dcls}">${delta(r.delta)}</td>
+      <td class="num">${money(r.avg)}</td>
+      <td class="num">${money(r.min)}</td>
+      <td class="num">${money(r.max)}</td>
+      <td class="bar">${rangeBar(r, top)}</td>
+      <td class="num dim">${fmtTime.format(r.asOf)}</td></tr>`;
+  }).join("");
+}
+
+/* ---------- summary numbers ---------- */
+function renderKpis() {
+  const live = state.rows.filter(r => !r.empty);
+  const set = (id, t) => $(id).textContent = t;
+  if (!live.length) { ["k-avg", "k-min", "k-max", "k-med"].forEach(i => set(i, "–")); set("w-min", "\u00a0"); set("w-max", "\u00a0"); return; }
+  const lo = live.reduce((a, b) => b.cur < a.cur ? b : a), hi = live.reduce((a, b) => b.cur > a.cur ? b : a);
+  set("k-avg", money(mean(live.map(r => r.cur))));
+  set("k-med", money(median(live.map(r => r.cur))));
+  set("k-min", money(lo.cur)); set("k-max", money(hi.cur));
+  $("w-min").innerHTML = `<b>${esc(lo.ticker)}</b>`;
+  $("w-max").innerHTML = `<b>${esc(hi.ticker)}</b>`;
+}
+
+/* ---------- charts ---------- */
+function niceTicks(max, n = 4) {
+  if (!(max > 0)) max = 0.01;
+  const m0 = Math.pow(10, Math.floor(Math.log10(max / n)) - 1);
+  let step = m0;
+  search: for (let k = 0; k < 4; k++)
+    for (const f of [1, 2, 2.5, 5]) {
+      const s = f * m0 * Math.pow(10, k);
+      if (Math.ceil(max / s - 1e-9) <= n) { step = s; break search; }
+    }
+  const top = Math.ceil(max / step - 1e-9) * step, ticks = [];
+  for (let v = 0; v <= top + 1e-9; v += step) ticks.push(+v.toFixed(6));
+  return { top, ticks, dec: Number.isInteger(+(step * 100).toFixed(6)) ? 2 : 3 };
+}
+
+function chart(r, scale) {
+  const W = 320, H = 132, ml = 40, mr = 10, mt = 10, mb = 20, pw = W - ml - mr, ph = H - mt - mb;
+  const { top, ticks, dec } = scale;
+  const X = x => ml + Math.min(1, Math.max(0, x)) * pw, Y = v => mt + ph - (v / top) * ph;
+  let g = "";
+  for (const t of ticks) g += `<line class="gl" x1="${ml}" x2="${W - mr}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/><text class="ax" x="${ml - 6}" y="${(Y(t) + 3).toFixed(1)}" text-anchor="end">$${t.toFixed(dec)}</text>`;
+  for (const [x, label, anchor] of [[0, "9:30 AM", "start"], [150 / 390, "12 PM", "middle"], [1, "4 PM", "end"]])
+    g += `<text class="ax" x="${X(x).toFixed(1)}" y="${H - 5}" text-anchor="${anchor}">${label}</text>`;
+  const first = r.pts[0], last = r.pts[r.pts.length - 1];
+  const line = r.pts.map((p, i) => `${i ? "L" : "M"}${X(p.x).toFixed(1)} ${Y(p.v).toFixed(1)}`).join("");
+  const area = `${line}L${X(last.x).toFixed(1)} ${Y(0)}L${X(first.x).toFixed(1)} ${Y(0)}Z`;
+  const colour = r.cur <= r.avg ? "var(--tight)" : "var(--wide)";
+  return {
+    geom: { W, X, Y },
+    html: `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(r.ticker)} spread through the session, from ${money(r.open)} at the open to ${money(r.cur)} now">
+      ${g}
+      <path class="ar" d="${area}"/>
+      <line class="op" x1="${ml}" x2="${W - mr}" y1="${Y(r.open).toFixed(1)}" y2="${Y(r.open).toFixed(1)}"/>
+      <path class="ln" d="${line}"/>
+      <line class="hair" y1="${mt}" y2="${mt + ph}" style="visibility:hidden"/>
+      <circle r="3.5" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5" style="visibility:hidden"/>
+      <circle cx="${X(last.x).toFixed(1)}" cy="${Y(last.v).toFixed(1)}" r="3.5" fill="${colour}" stroke="var(--surface)" stroke-width="1.5"/>
+    </svg>`
+  };
+}
+
+function attachHover(fig, r, geom) {
+  const svg = fig.querySelector("svg"), tip = fig.querySelector(".tip");
+  const line = svg.querySelector(".hair"), dot = svg.querySelectorAll("circle")[0];
+  const hide = () => { tip.hidden = true; line.style.visibility = dot.style.visibility = "hidden"; };
+  svg.addEventListener("pointermove", e => {
+    const rect = svg.getBoundingClientRect(), sx = (e.clientX - rect.left) / rect.width * geom.W;
+    let best = 0, bd = Infinity;
+    r.pts.forEach((p, i) => { const d = Math.abs(geom.X(p.x) - sx); if (d < bd) { bd = d; best = i; } });
+    const p = r.pts[best], cx = geom.X(p.x);
+    line.setAttribute("x1", cx); line.setAttribute("x2", cx);
+    dot.setAttribute("cx", cx); dot.setAttribute("cy", geom.Y(p.v));
+    line.style.visibility = dot.style.visibility = "visible";
+    tip.textContent = `${fmtTime.format(p.t)}  ${money(p.v)}`;
+    tip.hidden = false;
+    tip.style.left = Math.min(Math.max(cx / geom.W * rect.width, 48), rect.width - 48) + "px";
+  });
+  svg.addEventListener("pointerleave", hide);
+  svg.addEventListener("pointercancel", hide);
+}
+
+function renderCharts() {
+  const live = state.rows.filter(r => !r.empty);
+  const shared = niceTicks(Math.max(0.01, ...live.map(r => r.max)) * 1.02, 5);
+  const grid = $("grid");
+  if (!state.rows.length) { grid.innerHTML = `<div class="empty">No ETFs in the data file yet.</div>`; return; }
+  grid.innerHTML = state.rows.map(r => `<figure class="mini" id="chart-${esc(r.ticker)}">
+      <figcaption>
+        <div class="r1"><a class="t" href="#chart-${esc(r.ticker)}">${esc(r.ticker)}</a><span class="lmm">${esc(r.lmm)}</span></div>
+        <div class="r2"><span class="v">${r.empty ? "–" : money(r.cur)}</span>
+        <span class="d ${r.empty ? "dim" : r.delta < -1e-7 ? "neg" : r.delta > 1e-7 ? "pos" : "dim"}">${r.empty ? "" : delta(r.delta) + " vs open"}</span></div>
+      </figcaption>
+      <div class="plot">${r.empty ? `<div class="empty">No data yet</div>` : `<div class="tip" hidden></div>`}</div>
+    </figure>`).join("");
+  for (const r of state.rows) {
+    if (r.empty) continue;
+    const fig = document.getElementById(`chart-${r.ticker}`);
+    const scale = state.scale === "shared" ? shared : niceTicks(r.max * 1.1, 4);
+    const { html, geom } = chart(r, scale);
+    fig.querySelector(".plot").insertAdjacentHTML("afterbegin", html);
+    attachHover(fig, r, geom);
+  }
+}
+
+/* ---------- header / status ---------- */
+function renderHeader() {
+  const p = state.payload; if (!p) return;
+  const live = state.rows.filter(r => !r.empty);
+  const through = live.length ? new Date(Math.max(...live.map(r => +r.asOf))) : null;
+  $("subtitle").textContent = through
+    ? `${fmtDate.format(through)}. Values through ${fmtTime.format(through)} ET.`
+    : "Waiting for today's first bucket.";
+}
+
+function renderStatus() {
+  const p = state.payload, now = new Date();
+  let kind = "closed", text = "Loading";
+  if (p) {
+    const ageMin = (now - new Date(p.updated)) / 60000, open = marketIsOpen(now);
+    if (p.sample) { kind = "sample"; text = "Sample data"; }
+    else if (open && ageMin > CONFIG.staleAfterMinutes) { kind = "stale"; text = "Stale"; }
+    else if (open) { kind = "live"; text = "Live"; }
+    else { kind = "closed"; text = "Market closed"; }
+    $("updated").textContent = `Updated ${fmtTime.format(new Date(p.updated))} ET`;
+
+    const b = $("banner");
+    if (state.error) { b.className = "banner err"; b.hidden = false; b.textContent = `Could not refresh: ${state.error}. Showing the last data that loaded.`; }
+    else if (kind === "stale") { b.className = "banner warn"; b.hidden = false; b.textContent = `The publisher has not pushed new data for ${Math.round(ageMin)} minutes. Check that the Bloomberg machine is awake and the publisher is running.`; }
+    else if (kind === "sample") { b.className = "banner info"; b.hidden = false; b.textContent = "This is sample data from a saved session. Run the publisher and set githubRepo in index.html to see live spreads."; }
+    else b.hidden = true;
+  } else if (state.error) {
+    text = "Error";
+    const b = $("banner"); b.className = "banner err"; b.hidden = false;
+    b.textContent = `Could not load data: ${state.error}. Check that the publisher has pushed the file and that githubRepo in index.html is correct.`;
+    $("subtitle").textContent = "No data loaded.";
+  }
+  $("chip").className = "chip " + kind;
+  $("chip-text").textContent = text;
+
+  const left = Math.max(0, Math.round((state.nextAt - Date.now()) / 1000));
+  $("countdown").textContent = state.loading ? "" : `Next refresh in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+}
+
+/* ---------- refresh loop ---------- */
+function renderAll() { renderHeader(); renderKpis(); renderTable(); renderCharts(); renderStatus(); }
+
+async function refresh() {
+  if (state.loading) return;
+  state.loading = true; $("refresh").disabled = true; $("refresh").textContent = "Refreshing";
+  try {
+    const payload = await fetchData();
+    state.payload = payload; state.rows = normalize(payload); state.error = null;
+    renderAll();
+  } catch (err) {
+    state.error = err.message || String(err);
+  } finally {
+    state.loading = false; state.nextAt = Date.now() + CONFIG.refreshSeconds * 1000;
+    $("refresh").disabled = false; $("refresh").textContent = "Refresh now";
+    renderStatus();
+  }
+}
+
+/* ---------- events ---------- */
+$("refresh").addEventListener("click", refresh);
+$("thead").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]"); if (!b) return;
+  const k = b.dataset.k;
+  state.sort = state.sort.key === k ? { key: k, dir: -state.sort.dir } : { key: k, dir: (k === "ticker" || k === "lmm") ? 1 : -1 };
+  renderTable();
+  document.querySelector(`#thead button[data-k="${k}"]`)?.focus();
+});
+for (const [id, mode] of [["scale-own", "own"], ["scale-shared", "shared"]])
+  $(id).addEventListener("click", () => {
+    state.scale = mode;
+    $("scale-own").setAttribute("aria-pressed", String(mode === "own"));
+    $("scale-shared").setAttribute("aria-pressed", String(mode === "shared"));
+    renderCharts();
+  });
+
+renderHead();
+refresh();
+setInterval(() => { if (Date.now() >= state.nextAt) refresh(); else renderStatus(); }, 1000);
+</script>
+</body>
+</html>
